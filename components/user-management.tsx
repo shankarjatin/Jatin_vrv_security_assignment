@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { User, Role } from  '././../app/lib/types'
-import { api } from  '././../app/lib/api'
+import { User, Role } from '../lib/types'
+import { api } from '../lib/api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,18 +10,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, UserCheck, UserX } from 'lucide-react'
+import { Trash2, UserCheck, UserX, Search } from 'lucide-react'
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [newUser, setNewUser] = useState<Omit<User, 'id'>>({ name: '', email: '', roleId: '', status: 'Active' })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All')
+  const [roleFilter, setRoleFilter] = useState('All')
 
   useEffect(() => {
     fetchUsers()
     fetchRoles()
   }, [])
+
+  useEffect(() => {
+    filterUsers()
+  }, [users, searchTerm, statusFilter, roleFilter])
 
   const fetchUsers = async () => {
     const fetchedUsers = await api.getUsers()
@@ -31,6 +39,30 @@ export function UserManagement() {
   const fetchRoles = async () => {
     const fetchedRoles = await api.getRoles()
     setRoles(fetchedRoles)
+  }
+
+  const filterUsers = () => {
+    let filtered = users
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'All') {
+      filtered = filtered.filter(user => user.status === statusFilter)
+    }
+
+    // Apply role filter
+    if (roleFilter !== 'All') {
+      filtered = filtered.filter(user => user.roleId === roleFilter)
+    }
+
+    setFilteredUsers(filtered)
   }
 
   const handleCreateUser = async () => {
@@ -109,6 +141,43 @@ export function UserManagement() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <div className="mb-4 flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Input
+            type="text"
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+        </div>
+        <Select value={statusFilter} onValueChange={(value: 'All' | 'Active' | 'Inactive') => setStatusFilter(value)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Statuses</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Roles</SelectItem>
+            {roles.map((role) => (
+              <SelectItem key={role.id} value={role.id}>
+                {role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -122,7 +191,7 @@ export function UserManagement() {
           </TableHeader>
           <TableBody>
             <AnimatePresence>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <motion.tr
                   key={user.id}
                   initial={{ opacity: 0, height: 0 }}
